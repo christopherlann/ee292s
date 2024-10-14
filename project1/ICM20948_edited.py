@@ -1,5 +1,10 @@
 #!/usr/bin/python
 # -*- coding:utf-8 -*-
+import matplotlib.pyplot as plt
+import seaborn as sns
+import numpy as np
+import matplotlib.animation as animation
+
 import time
 import smbus
 import math
@@ -373,25 +378,128 @@ class ICM20948(object):
     MotionVal[6]=Mag[0]
     MotionVal[7]=Mag[1]
     MotionVal[8]=Mag[2]
+
+  def adc_to_acceleration_ms2(self, adc_value):
+      max_adc = 32768  # Signed 16-bit ADC values range from -32768 to 32768
+      max_g = 2  # ±2g
+      g_to_ms2 = 9.81  # 1g = 9.81 m/s²   
+      # Convert ADC value to acceleration in g's
+      acceleration_g = (adc_value / max_adc) * max_g     
+      # Convert acceleration from g's to m/s²
+      acceleration_ms2 = acceleration_g * g_to_ms2
+
+      return acceleration_ms2
+
+  def adc_to_gyro(self, adc_value):
+    max_adc = 32768  # Signed 16-bit ADC values range from -32768 to 32768
+    max_dps = 1000
+    
+    # Convert ADC value to acceleration in g's
+    dps = (adc_value / max_adc) * max_dps    
+    
+    return dps
     
 if __name__ == '__main__':
-  # import time
+  import time
   print("\nSense HAT Test Program ...\n")
   MotionVal=[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]
   icm20948=ICM20948()
-  while True:
-    icm20948.icm20948_Gyro_Accel_Read()
-    icm20948.icm20948MagRead()
-    icm20948.icm20948CalAvgValue()
-    time.sleep(0.1)
-    icm20948.imuAHRSupdate(MotionVal[0] * 0.0175, MotionVal[1] * 0.0175,MotionVal[2] * 0.0175,
-                MotionVal[3],MotionVal[4],MotionVal[5], 
-                MotionVal[6], MotionVal[7], MotionVal[8])
-    pitch = math.asin(-2 * q1 * q3 + 2 * q0* q2)* 57.3
-    roll  = math.atan2(2 * q2 * q3 + 2 * q0 * q1, -2 * q1 * q1 - 2 * q2* q2 + 1)* 57.3
-    yaw   = math.atan2(-2 * q1 * q2 - 2 * q0 * q3, 2 * q2 * q2 + 2 * q3 * q3 - 1) * 57.3
-    print("\r\n /-------------------------------------------------------------/ \r\n")
-    print('\r\n Roll = %.2f , Pitch = %.2f , Yaw = %.2f\r\n'%(roll,pitch,yaw))
-    print('\r\nAcceleration:  X = %d , Y = %d , Z = %d\r\n'%(Accel[0],Accel[1],Accel[2]))  
-    print('\r\nGyroscope:     X = %d , Y = %d , Z = %d\r\n'%(Gyro[0],Gyro[1],Gyro[2]))
-    print('\r\nMagnetic:      X = %d , Y = %d , Z = %d'%((Mag[0]),Mag[1],Mag[2]))
+  x_data = []
+  x_accel_pitch = []
+  x_gyro_pitch = []
+  y_data = []
+  z_data = []
+  times = []
+  x_gyro_pitch = []
+  times = []
+  current_time = time.time()
+  last_time = current_time
+  
+  theta_pitch = 0  # Initial pitch angle
+  theta_pitch_vals = [] 
+
+  try:
+    while True:
+      icm20948.icm20948_Gyro_Accel_Read()
+      icm20948.icm20948MagRead()
+      icm20948.icm20948CalAvgValue()
+      # time.sleep(0.1)
+      icm20948.imuAHRSupdate(MotionVal[0] * 0.0175, MotionVal[1] * 0.0175,MotionVal[2] * 0.0175,
+                  MotionVal[3],MotionVal[4],MotionVal[5], 
+                  MotionVal[6], MotionVal[7], MotionVal[8])
+      pitch = adc_to_gyro(math.asin(-2 * q1 * q3 + 2 * q0* q2)* 57.3)
+      roll  = adc_to_gyro(math.atan2(2 * q2 * q3 + 2 * q0 * q1, -2 * q1 * q1 - 2 * q2* q2 + 1)* 57.3)
+      yaw   = adc_to_gyro(math.atan2(-2 * q1 * q2 - 2 * q0 * q3, 2 * q2 * q2 + 2 * q3 * q3 - 1) * 57.3)
+      times.append(time.time() - current_time)
+
+      x_gyro_pitch.append(pitch)
+      # dt_times.append(time.time() - last_time)
+      
+      # last_time = time.time()
+
+      # # Perform the numerical integration over the gyro pitch data
+      # for idx, omega_pitch in enumerate(x_gyro_pitch):
+      #     # Integrate angular velocity to get pitch angle
+      #     theta_pitch += omega_pitch * dt_times[idx]
+      #     theta_pitch_vals.append(theta_pitch)
+      
+      # Capture time difference
+      current_time = time.time()
+      dt = current_time - last_time
+      last_time = current_time
+      # Store the pitch angular velocity (rate of change of pitch)
+      x_gyro_pitch.append(pitch)  # If pitch is angular velocity in °/s
+      
+      # Integrate angular velocity to get the pitch angle
+      theta_pitch += pitch * dt
+      theta_pitch_vals.append(theta_pitch)  # Append the updated pitch angle
+      
+
+      # X_data transformation
+      x_data.append(icm20948.adc_to_acceleration_ms2(Accel[0]))
+      # accel_pitch = math.atan2(icm20948.adc_to_acceleration_ms2(Accel[2]), math.sqrt(icm20948.adc_to_acceleration_ms2(Accel[0])**2 + icm20948.adc_to_acceleration_ms2(Accel[1])**2)) * (180 / math.pi)
+      accel_pitch = math.atan2(icm20948.adc_to_acceleration_ms2(Accel[1]), math.sqrt(icm20948.adc_to_acceleration_ms2(Accel[0])**2 + icm20948.adc_to_acceleration_ms2(Accel[2])**2)) * (180 / math.pi)
+      x_accel_pitch.append(accel_pitch)
+      y_data.append(icm20948.adc_to_acceleration_ms2(Accel[1]))
+      z_data.append(icm20948.adc_to_acceleration_ms2(Accel[2]))
+      print("\r\n /-------------------------------------------------------------/ \r\n")
+      print('\r\n Roll = %.2f , Pitch = %.2f , Yaw = %.2f\r\n'%(roll,pitch,yaw))
+      print('\r\nAcceleration:  X = %d , Y = %d , Z = %d\r\n'%(Accel[0],Accel[1],Accel[2]))  
+      print('\r\nGyroscope:     X = %d , Y = %d , Z = %d\r\n'%(Gyro[0],Gyro[1],Gyro[2]))
+      print('\r\nMagnetic:      X = %d , Y = %d , Z = %d'%((Mag[0]),Mag[1],Mag[2]))
+
+
+      import matplotlib.pyplot as plt
+
+      # Assuming times, x_data, y_data, and z_data are already defined
+      # Create the figure and axes using plt.subplots()
+      fig, ax = plt.subplots(figsize=(10, 6))  # Set the figure size
+
+      # Plot X vs Time
+      # ax.plot(times, x_data, label='X vs Time', color='r')
+
+      ax.plot(times, x_accel_pitch, label='accel pitch', color='y')
+
+      ax.plot(times, theta_pitch_vals, label='gyro pitch', color='r')
+
+      # # Plot Y vs Time
+      # ax.plot(times, y_data, label='Y vs Time', color='g')
+
+      # # Plot Z vs Time
+      # ax.plot(times, z_data, label='Z vs Time', color='b')
+
+      # Add grid
+      ax.grid(True)
+
+      # Add title and labels
+      ax.set_title('X, Y, Z vs Time')
+      ax.set_xlabel('Time')
+      ax.set_ylabel('Values')
+
+      # Add a legend
+      ax.legend()
+
+      # Show the plot
+      plt.savefig('real_time.png')
+  except:
+    pass

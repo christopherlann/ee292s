@@ -1,7 +1,6 @@
 import math
 import time
 import matplotlib.pyplot as plt
-from matplotlib.animation import FuncAnimation
 import ICM20948
 
 # Initialize lists for storing data
