@@ -376,10 +376,23 @@ class ICM20948(object):
     MotionVal[7]=Mag[1]
     MotionVal[8]=Mag[2]
 
+  def adc_to_accel(self, adc_value):
+    max_adc = 32768  # Signed 16-bit ADC values range from -32768 to 32768
+    max_g = 2  # ±2g
+    g_to_ms2 = 9.81  # 1g = 9.81 m/s²
+    return (adc_value / max_adc) * max_g * g_to_ms2
+
+  def adc_to_gyro(self, adc_value):
+    max_adc = 32768  # Signed 16-bit ADC values range from -32768 to 32768
+    max_dps = 1000
+    # Convert ADC value to acceleration in g's
+    dps = (adc_value / max_adc) * max_dps    
+    return dps
+
 # Open a CSV file to log data
-with open('data.csv', 'w', newline='') as file:
+with open('data2.csv', 'w', newline='') as file:
     writer = csv.writer(file)
-    writer.writerow(['AccelX', 'AccelY', 'AccelZ', 'GyroX', 'GyroY', 'GyroZ'])  # Header row
+    writer.writerow(['Timestamp', 'AccelX', 'AccelY', 'AccelZ', 'GyroX', 'GyroY', 'GyroZ'])  # Header row
 
     print("\nSense HAT Test Program ...\n")
     MotionVal=[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]
@@ -392,11 +405,12 @@ with open('data.csv', 'w', newline='') as file:
         icm20948.imuAHRSupdate(MotionVal[0] * 0.0175, MotionVal[1] * 0.0175,MotionVal[2] * 0.0175,
                     MotionVal[3],MotionVal[4],MotionVal[5], 
                     MotionVal[6], MotionVal[7], MotionVal[8])
+        timestamp = time.time()
 
-        writer.writerow([Accel[0], Accel[1], Accel[2],
-                        Gyro[0], Gyro[1], Gyro[2]])
-
+        writer.writerow([timestamp, icm20948.adc_to_accel(Accel[0]), icm20948.adc_to_accel(Accel[1]), icm20948.adc_to_accel(Accel[2]),
+                        icm20948.adc_to_gyro(Gyro[0]), icm20948.adc_to_gyro(Gyro[1]), icm20948.adc_to_gyro(Gyro[2])])
         file.flush()
         time.sleep(.2)
+
 
 

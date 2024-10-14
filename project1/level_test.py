@@ -9,6 +9,15 @@ def adc_to_accel(adc_value):
     g_to_ms2 = 9.81  # 1g = 9.81 m/s²
     return (adc_value / max_adc) * max_g * g_to_ms2
 
+def adc_to_gyro(adc_value):
+    max_adc = 32768  # Signed 16-bit ADC values range from -32768 to 32768
+    max_dps = 1000
+    
+    # Convert ADC value to acceleration in g's
+    dps = (adc_value / max_adc) * max_dps    
+    
+    return dps
+
 if __name__ == '__main__':
     print("\nSense HAT Test Program ...\n")
     MotionVal = [0.0]*9
